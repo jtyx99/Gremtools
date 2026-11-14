@@ -1,0 +1,123 @@
+@import 'tailwindcss';
+
+/* Colour tokens. Dark is the default look; light is applied by system preference or the toggle. */
+:root {
+  --bg: #15171c;
+  --surface: #1d2027;
+  --surface-2: #272b35;
+  --border: #363b48;
+  --text: #eef0f4;
+  --muted: #a0a7b6;
+  --primary: #b4f03a;
+  --primary-hover: #c5f765;
+  --primary-ink: #172006;
+  --accent: #a78bfa;
+  --danger: #ff7b72;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --bg: #f5f6f0;
+    --surface: #ffffff;
+    --surface-2: #ecefe4;
+    --border: #d5d9c9;
+    --text: #1a1d17;
+    --muted: #5a6152;
+    --primary: #a6e22e;
+    --primary-hover: #97d41c;
+    --primary-ink: #172006;
+    --accent: #6d3fd9;
+    --danger: #c62828;
+    color-scheme: light;
+  }
+}
+:root[data-theme='light'] {
+  --bg: #f5f6f0;
+  --surface: #ffffff;
+  --surface-2: #ecefe4;
+  --border: #d5d9c9;
+  --text: #1a1d17;
+  --muted: #5a6152;
+  --primary: #a6e22e;
+  --primary-hover: #97d41c;
+  --primary-ink: #172006;
+  --accent: #6d3fd9;
+  --danger: #c62828;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-ink: var(--primary-ink);
+  --color-accent: var(--accent);
+  --color-danger: var(--danger);
+  --font-display: ui-rounded, 'SF Pro Rounded', 'Nunito', 'Segoe UI', system-ui, sans-serif;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-semibold text-text transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply border-transparent bg-primary text-primary-ink hover:bg-primary-hover;
+  }
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+  .card {
+    @apply rounded-2xl border border-border bg-surface;
+  }
+  .field {
+    @apply w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text;
+  }
+  .label {
+    @apply mb-1 block text-sm font-medium text-text;
+  }
+  .hint {
+    @apply mt-1 text-xs text-muted;
+  }
+}
+
+@keyframes ling-tinker {
+  0%, 100% { transform: rotate(-14deg); }
+  50% { transform: rotate(16deg); }
+}
+@keyframes ling-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.ling-tinker { animation: ling-tinker 0.7s ease-in-out infinite; transform-origin: 150px 150px; }
+.ling-bob { animation: ling-bob 2.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ling-tinker, .ling-bob { animation: none; }
+}
