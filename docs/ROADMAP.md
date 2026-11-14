@@ -15,12 +15,13 @@ What has been built, what should come next, and ideas for later. Update this fil
 - Unit tests for every operation; end-to-end tests for every tool, plus privacy (no outside
   requests) and offline checks.
 - AGPL-3.0 licence, third-party licence list, source link in the footer.
+- Deployment to GitHub Pages on every push to `main`, with a configurable base path.
 
 ## Next (recommended order)
 
-1. **Deploy.** Pick a static host (Cloudflare Pages is the simplest fit), set up automatic
-   deployment from `main`, and register a domain. Add a GitHub Actions workflow that runs
-   `npm test`, `npm run build` and `npm run e2e` on every pull request.
+1. **Custom domain and pull-request checks.** Register a domain and add it under Settings →
+   Pages. Add a workflow that runs `npm test`, `npm run build` and `npm run e2e` on every pull
+   request (the deploy workflow runs only the unit tests).
 2. **Protect and unlock PDF.** MuPDF can open with a password and save with encryption
    (`saveToBuffer` options `encrypt=aes-256,user-password=...,owner-password=...`; `decrypt=yes`).
    Also lets every other tool offer "enter password" instead of rejecting protected files.
@@ -114,7 +115,7 @@ starting point; a small in-browser model could be explored later.
 
 ## Open decisions
 
-- Hosting provider and domain.
+- Domain name.
 - Whether to accept outside contributions, and if so whether to require a contributor agreement.
 - Whether to add Ghostscript for stronger compression, given its size.
 - Final mascot illustration and whether Ling gets more poses or animation.

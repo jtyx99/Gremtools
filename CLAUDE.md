@@ -32,6 +32,8 @@ Read `docs/ARCHITECTURE.md` before structural changes; it has the step-by-step f
 - Errors the user should read are thrown as `PdfToolError`; anything else shows a generic message.
 - Licence is AGPL-3.0-or-later. New dependencies must be AGPL-compatible and listed in
   `THIRD_PARTY_LICENSES.md`.
+- The site may be served under a sub-path (GitHub Pages). Never hard-code a leading `/` in asset
+  URLs or links; see "Hosting and the base path" in `docs/ARCHITECTURE.md`.
 - British spelling in user-facing text (organise, colour, centre).
 - Every new operation gets a unit test in `tests/unit/` and an end-to-end check in `tests/e2e/run.mjs`.
 - Keep `docs/ROADMAP.md` up to date when a tool ships.

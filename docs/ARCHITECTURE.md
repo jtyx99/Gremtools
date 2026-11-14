@@ -189,9 +189,20 @@ operation to MuPDF.
 **Error names across the worker.** Errors cross the worker boundary as `{ name, message }`.
 `PdfToolError` sets `name` explicitly because class names are minified in production builds.
 
-**Hosting.** The host must fall back to `index.html` for unknown paths. Without that, reloading
-`/pdf/merge` gives a 404. GitHub Pages has no such setting; use a `404.html` copy of `index.html`
-there, or choose Cloudflare Pages or Netlify.
+**Hosting and the base path.** The site is deployed to GitHub Pages by
+`.github/workflows/deploy.yml`. A Pages project site lives under `/<repository>/`, so the address
+the app is served under is configurable: `BASE_PATH` (default `/`) is read in `vite.config.ts` and
+feeds Vite's `base`, the PWA manifest `start_url` and `scope`, and the router `basename` (through
+`import.meta.env.BASE_URL` in `App.tsx`). The workflow takes the value from
+`actions/configure-pages`, so a custom domain needs no code change. Never hard-code a leading `/`
+in an asset URL or link; use router links, imports, or `import.meta.env.BASE_URL`.
+
+Tool pages have their own URLs, and Pages cannot be told to serve the app for unknown paths.
+`scripts/spa-fallback.mjs` (run by `npm run build`) copies `index.html` to `404.html`, which Pages
+serves for any path without a file, so reloading `/pdf/merge` loads the app. The first such
+response has a 404 status; after that the service worker answers. `public/.nojekyll` stops Pages
+from filtering files. If the repository is renamed, the site address changes and installed copies
+of the app must be reinstalled.
 
 **No analytics, no remote assets.** The end-to-end suite fails on any request to another origin.
 If ads or analytics are added later, that test and the privacy wording in the UI must be changed

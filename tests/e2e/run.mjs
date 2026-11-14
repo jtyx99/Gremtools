@@ -1,6 +1,7 @@
 /**
  * End-to-end checks against the production build, in real Chromium.
  * Run `npm run build` first, then `npm run e2e`.
+ * For a sub-path build, set the same BASE_PATH for both commands.
  * Set SHOTS=<dir> to also save screenshots.
  */
 import { spawn } from 'node:child_process'
@@ -14,7 +15,9 @@ import { unzipSync } from 'fflate'
 import * as mupdf from 'mupdf'
 
 const PORT = 4183
-const BASE = `http://localhost:${PORT}`
+const ORIGIN = `http://localhost:${PORT}`
+// Set BASE_PATH (as for the build) to test a site served under a sub-path, e.g. /Gremtools/.
+const BASE = ORIGIN + (process.env.BASE_PATH || '/').replace(/\/+$/, '')
 const dir = mkdtempSync(join(tmpdir(), 'gremtools-e2e-'))
 const shots = process.env.SHOTS
 if (shots) mkdirSync(shots, { recursive: true })
@@ -208,7 +211,7 @@ await test('a broken PDF gives a clear message', async () => {
 })
 
 await test('no request leaves the site or carries data', async () => {
-  const outside = requests.filter((r) => !r.url.startsWith(BASE) && !r.url.startsWith('blob:') && !r.url.startsWith('data:'))
+  const outside = requests.filter((r) => !r.url.startsWith(ORIGIN) && !r.url.startsWith('blob:') && !r.url.startsWith('data:'))
   assert.deepEqual(outside, [])
   assert.deepEqual(requests.filter((r) => r.method !== 'GET' || r.body), [])
 })

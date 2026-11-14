@@ -45,9 +45,25 @@ npm run dev
 
 ## Deploying
 
-`npm run build` produces a static site in `dist/`. Host it on any static host (Cloudflare Pages,
-Netlify, GitHub Pages). The host must serve `index.html` for unknown paths, because tool pages
-have their own URLs (`/pdf/merge`). `public/_redirects` does this on Netlify and Cloudflare Pages.
+The site deploys to GitHub Pages automatically. `.github/workflows/deploy.yml` runs on every push
+to `main` (or from the "Run workflow" button in the Actions tab): it runs the unit tests, builds
+the site and publishes `dist/`.
+
+One-time setup in the repository: **Settings → Pages → Build and deployment → Source: GitHub
+Actions**.
+
+The site is then served at `https://<owner>.github.io/<repository>/`. To use a custom domain, add
+it under Settings → Pages; the next deploy moves the site to the root of that domain with no code
+change.
+
+To build for a sub-path by hand, set `BASE_PATH`:
+
+```bash
+BASE_PATH=/Gremtools/ npm run build
+```
+
+Other static hosts (Cloudflare Pages, Netlify) also work: build with the default base and make the
+host serve `index.html` for unknown paths. `public/_redirects` does this on those two.
 
 ## Documentation
 
