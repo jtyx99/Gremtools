@@ -63,6 +63,8 @@ tests/
   e2e/run.mjs           Playwright script against the built site
 public/                 favicon, app icons, _redirects (single-page fallback)
 scripts/make-icons.mjs  regenerates the PNG app icons from favicon.svg
+scripts/spa-fallback.mjs  copies index.html to 404.html after each build (GitHub Pages)
+.github/workflows/deploy.yml  tests, builds and publishes to GitHub Pages
 ```
 
 ## How a tool run works
@@ -203,6 +205,10 @@ serves for any path without a file, so reloading `/pdf/merge` loads the app. The
 response has a 404 status; after that the service worker answers. `public/.nojekyll` stops Pages
 from filtering files. If the repository is renamed, the site address changes and installed copies
 of the app must be reinstalled.
+
+GitHub identifies a Pages deployment by its commit. If a commit was already published once (for
+example while Pages was still set to "Deploy from a branch"), re-running the workflow on that same
+commit reports success but leaves the old content live. Push a new commit to redeploy.
 
 **No analytics, no remote assets.** The end-to-end suite fails on any request to another origin.
 If ads or analytics are added later, that test and the privacy wording in the UI must be changed
