@@ -107,12 +107,42 @@ const img2 = png('two', 200, 300)
 const notPdf = join(dir, 'fake.pdf')
 writeFileSync(notPdf, 'this is not a pdf')
 
+/** A photo-like test picture: a red ball with shading on a blue-to-green backdrop. */
+function subjectPng() {
+  const w = 640, h = 480
+  const pix = new mupdf.Pixmap(mupdf.ColorSpace.DeviceRGB, [0, 0, w, h], false)
+  const px = pix.getPixels()
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 3
+      const d = Math.hypot(x - 320, y - 240)
+      if (d < 150) {
+        const light = 1 - Math.hypot(x - 270, y - 190) / 320
+        px[i] = 230 * light + 20; px[i + 1] = 40 * light; px[i + 2] = 30 * light
+      } else {
+        px[i] = 40; px[i + 1] = 110 + (y * 60) / h; px[i + 2] = 200 - (y * 80) / h
+      }
+    }
+  }
+  const path = join(dir, 'ball.png')
+  writeFileSync(path, pix.asPNG())
+  return path
+}
+/** Alpha (0-255) of a PNG at the given pixel. */
+function alphaAt(png, x, y) {
+  const pix = new mupdf.Image(png).toPixmap()
+  const n = pix.getNumberOfComponents()
+  assert.equal(pix.getAlpha(), 1, 'output should have transparency')
+  return pix.getPixels()[(y * pix.getWidth() + x) * n + n - 1]
+}
+const ball = subjectPng()
+
 console.log('Gremtools end-to-end')
 
 await test('home lists the PDF tools and search filters them', async () => {
   await open('/')
   await assert.doesNotReject(page.getByTestId('tool-card').first().waitFor())
-  assert.equal(await page.getByTestId('tool-card').count(), 8)
+  assert.equal(await page.getByTestId('tool-card').count(), 9)
   await shot('home')
   await page.getByLabel('Find a tool').fill('combine')
   assert.equal(await page.getByTestId('tool-card').count(), 1)
@@ -210,6 +240,36 @@ await test('a broken PDF gives a clear message', async () => {
   assert.match(await page.getByTestId('open-error').innerText(), /could not be read as a PDF/)
 })
 
+async function removeBackground() {
+  await open('/image/remove-background')
+  await upload(ball)
+  // BG_MODEL=best exercises the larger model (slower; 88 MB of files).
+  if (process.env.BG_MODEL === 'best') await page.getByText('Best', { exact: true }).click()
+  const started = Date.now()
+  await page.getByTestId('run').click()
+  await page.getByTestId('download-png').waitFor({ timeout: 240000 })
+  const seconds = ((Date.now() - started) / 1000).toFixed(1)
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-png').click()])
+  return { png: new Uint8Array(readFileSync(await dl.path())), seconds }
+}
+
+await test('remove background cuts out the subject', async () => {
+  const { png, seconds } = await removeBackground()
+  console.log(`        (first run, including model download: ${seconds}s)`)
+  assert.ok(alphaAt(png, 5, 5) < 30, 'corner should be transparent')
+  assert.ok(alphaAt(png, 634, 474) < 30, 'opposite corner should be transparent')
+  assert.ok(alphaAt(png, 320, 240) > 225, 'subject should be opaque')
+  await shot('remove-background')
+  // A filled background makes the whole picture opaque and offers JPG.
+  await page.getByTestId('result').getByText('Colour', { exact: true }).click()
+  await page.getByTestId('download-jpg').waitFor()
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-png').click()])
+  const filled = new mupdf.Image(new Uint8Array(readFileSync(await dl.path()))).toPixmap()
+  const n = filled.getNumberOfComponents()
+  assert.ok(!filled.getAlpha() || filled.getPixels()[n - 1] === 255, 'filled background should be opaque')
+  await shot('remove-background-colour')
+})
+
 await test('no request leaves the site or carries data', async () => {
   const outside = requests.filter((r) => !r.url.startsWith(ORIGIN) && !r.url.startsWith('blob:') && !r.url.startsWith('data:'))
   assert.deepEqual(outside, [])
@@ -233,6 +293,10 @@ await test('works offline after the first visit', async () => {
   await upload(photo)
   const out = await runAndDownload()
   assert.equal(texts(out).length, 1)
+  // The background-removal model was cached by the earlier run.
+  const { png, seconds } = await removeBackground()
+  console.log(`        (offline run from cache: ${seconds}s)`)
+  assert.ok(alphaAt(png, 320, 240) > 225)
   await context.setOffline(false)
 })
 

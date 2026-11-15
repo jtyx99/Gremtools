@@ -6,6 +6,8 @@ It is built on the following open-source software, which ships as part of the si
 | Package | Used for | Licence |
 |---|---|---|
 | [MuPDF.js](https://www.npmjs.com/package/mupdf) (`mupdf`) | PDF compression, rendering pages to images | AGPL-3.0-or-later |
+| [@imgly/background-removal](https://github.com/imgly/background-removal-js) and its model data (ISNet) | Background removal | AGPL-3.0 |
+| [ONNX Runtime Web](https://github.com/microsoft/onnxruntime) | Runs the background-removal model | MIT |
 | [pdf-lib](https://github.com/Hopding/pdf-lib) | Building and modifying PDFs | MIT |
 | [PDF.js](https://github.com/mozilla/pdf.js) (`pdfjs-dist`) | Page thumbnails | Apache-2.0 |
 | [fflate](https://github.com/101arrowz/fflate) | Zip downloads | MIT |

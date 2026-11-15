@@ -17,6 +17,12 @@ What has been built, what should come next, and ideas for later. Update this fil
 - AGPL-3.0 licence, third-party licence list, source link in the footer.
 - Deployment to GitHub Pages on every push to `main`, with a configurable base path.
 
+## Done (version 0.2.0)
+
+- Image module started with **Remove background**: on-device cut-out with Fast and Best models,
+  before/after slider, transparent / colour / blurred / image backgrounds, full-resolution PNG and
+  JPG download, model cached for offline use after the first run.
+
 ## Next (recommended order)
 
 1. **Custom domain and pull-request checks.** Register a domain and add it under Settings →
@@ -71,11 +77,22 @@ Reference sites: iLoveIMG, Squoosh, Photopea, TinyPNG, remove.bg.
 | Rotate / flip | Canvas |
 | Watermark | Canvas; share options UI with the PDF watermark |
 | Remove metadata (EXIF) | Re-encode, or strip segments directly for JPEG |
-| Remove background | `@imgly/background-removal` (ONNX model, AGPL-compatible; 40 MB or more, run-time cached) |
 | Blur faces / pixelate area | MediaPipe face detection, or manual selection |
 | Upscale | Small ESRGAN-style ONNX model via WebGPU; quality and speed vary by device, mark as experimental |
 | Meme / simple editor (text, shapes) | Canvas editor; lower priority |
 | Colour picker from image | Bridges to the colour module |
+
+### Remove background: follow-ups
+
+1. **Erase/restore brush** to fix edges by hand (remove.bg calls this Magic Brush). Paint on the
+   mask canvas; the compositing code already separates mask from image.
+2. **Batch mode:** several images in, zip of cut-outs out.
+3. **Better model:** BiRefNet (MIT) through Transformers.js for finer hair and edges. Larger, and
+   realistically needs WebGPU; add as a third quality level after testing.
+4. **Edge controls:** feather, shrink/grow the edge, drop shadow under the subject.
+5. **Speed:** WebGPU where available, and multi-threading on a host that can send
+   cross-origin-isolation headers (Cloudflare Pages can; GitHub Pages cannot).
+6. **Clean-up of specks** left by the Fast model (drop small isolated regions of the mask).
 
 ## Colour module (planned)
 

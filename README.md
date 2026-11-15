@@ -3,8 +3,8 @@
 Free tools for your files that run entirely in your browser. No uploads, no sign-up, no limits.
 Ling the gremling does the tinkering.
 
-Gremtools is one platform with separate modules. The PDF module is the first; image and colour
-modules are planned.
+Gremtools is one platform with separate modules: PDF tools, image tools (started), and colour
+tools (planned).
 
 ## PDF tools
 
@@ -19,8 +19,16 @@ modules are planned.
 | Watermark | Stamp text or an image on every page |
 | Page numbers | Add page numbers in a chosen position and style |
 
+## Image tools
+
+| Tool | What it does |
+|---|---|
+| Remove background | Cuts the subject out of a photo on the device; keep it transparent, or put a colour, a blur of the original, or another image behind it. Full-resolution PNG or JPG download |
+
 Files are processed on the user's device with WebAssembly and JavaScript. The site makes no
-network requests with file data, and works offline after the first visit (it is an installable PWA).
+network requests with file data, and works offline after the first visit (it is an installable PWA). The one exception to "first
+visit": the background-removal model (44 or 88 MB) is fetched from the site the first time that
+tool runs, and works offline from then on.
 
 ## Getting started
 

@@ -7,6 +7,8 @@ export interface RunState {
   status: RunStatus
   /** 0 to 1 when known. */
   progress?: number
+  /** What is happening right now, e.g. "Downloading the model". */
+  stage?: string
   error?: string
   outputs: OutputFile[]
   /** Short line shown above the downloads, e.g. the size saved. */
@@ -22,14 +24,14 @@ export interface RunResult {
 export function useRun() {
   const [state, setState] = useState<RunState>({ status: 'idle', outputs: [] })
 
-  const run = useCallback(async (job: (setProgress: (p: number) => void) => Promise<RunResult>) => {
+  const run = useCallback(async (job: (setProgress: (p: number, stage?: string) => void) => Promise<RunResult>) => {
     setState({ status: 'working', outputs: [] })
     try {
-      const result = await job((progress) => setState((s) => (s.status === 'working' ? { ...s, progress } : s)))
+      const result = await job((progress, stage) => setState((s) => (s.status === 'working' ? { ...s, progress, stage } : s)))
       setState({ status: 'done', ...result })
     } catch (err) {
       console.error(err)
-      const known = err instanceof Error && err.name === 'PdfToolError'
+      const known = err instanceof Error && (err.name === 'ToolError' || err.name === 'PdfToolError')
       setState({
         status: 'error',
         outputs: [],

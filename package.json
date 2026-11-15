@@ -1,7 +1,7 @@
 {
   "name": "gremtools",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "license": "AGPL-3.0-or-later",
   "scripts": {
@@ -16,6 +16,8 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@imgly/background-removal": "^1.4.5",
+    "@imgly/background-removal-data": "^1.4.5",
     "fflate": "^0.8.3",
     "mupdf": "^1.28.6",
     "pdf-lib": "^1.17.1",

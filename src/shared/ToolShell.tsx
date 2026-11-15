@@ -15,6 +15,10 @@ interface Props {
   onReset: () => void
   /** Name for the zip when there are several outputs. */
   zipName?: string
+  /** Shown instead of the standard download card when the run is done (for tools with their own result view). */
+  result?: ReactNode
+  /** Wider layout for tools with an editor. */
+  wide?: boolean
   children: ReactNode
 }
 
@@ -22,14 +26,14 @@ interface Props {
  * Frame shared by every tool page. Children are the tool's own file picker and
  * options; this component swaps them for the working, done or error view.
  */
-export function ToolShell({ moduleId, moduleName, title, description, run, onReset, zipName = 'gremtools.zip', children }: Props) {
+export function ToolShell({ moduleId, moduleName, title, description, run, onReset, zipName = 'gremtools.zip', result, wide, children }: Props) {
   useEffect(() => {
     document.title = `${title} · Gremtools`
     return () => { document.title = 'Gremtools' }
   }, [title])
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8">
+    <div className={`mx-auto w-full px-4 py-8 ${wide ? 'max-w-6xl' : 'max-w-4xl'}`}>
       <Link to={`/${moduleId}`} className="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-text">
         <Icon name="back" size={16} /> {moduleName}
       </Link>
@@ -41,7 +45,7 @@ export function ToolShell({ moduleId, moduleName, title, description, run, onRes
       {run.status === 'working' && (
         <div className="card flex flex-col items-center px-6 py-10 text-center" role="status">
           <Mascot pose="working" size={140} />
-          <p className="mt-2 text-lg font-semibold">Tinkering…</p>
+          <p className="mt-2 text-lg font-semibold" data-testid="stage">{run.stage ?? 'Tinkering…'}</p>
           <p className="text-sm text-muted">Everything is happening on your device.</p>
           {run.progress !== undefined && (
             <div className="mt-4 h-2 w-full max-w-xs overflow-hidden rounded-full bg-surface-2">
@@ -51,7 +55,9 @@ export function ToolShell({ moduleId, moduleName, title, description, run, onRes
         </div>
       )}
 
-      {run.status === 'done' && (
+      {run.status === 'done' && result}
+
+      {run.status === 'done' && !result && (
         <div className="card flex flex-col items-center px-6 py-10 text-center" data-testid="result">
           <Mascot pose="happy" size={140} />
           <p className="mt-2 text-lg font-semibold">Done!</p>

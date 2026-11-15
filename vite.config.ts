@@ -3,6 +3,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { BG_REMOVAL_DIR, bgRemovalAssets } from './build/bgRemovalAssets.ts'
 
 // Address the site is served under. '/' for a root domain; GitHub Pages project
 // sites live under '/<repository>/', which the deploy workflow passes in.
@@ -13,6 +14,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    bgRemovalAssets(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png'],
@@ -37,7 +39,17 @@ export default defineConfig({
         globPatterns: ['**/*.{js,mjs,css,html,svg,png,wasm,woff2}'],
         maximumFileSizeToCacheInBytes: 20 * 1024 * 1024,
         navigateFallback: 'index.html',
-        globIgnores: ['404.html'],
+        globIgnores: ['404.html', `${BG_REMOVAL_DIR}/**`],
+        // The background-removal models (44 and 88 MB) are too big to download up front.
+        // They are cached the first time the tool runs, and work offline after that.
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.includes('/bg-removal/'),
+            handler: 'CacheFirst',
+            // Change the name when the model package version changes, so old files are not reused.
+            options: { cacheName: 'bg-removal-1.4.5', cacheableResponse: { statuses: [200] } },
+          },
+        ],
       },
     }),
   ],

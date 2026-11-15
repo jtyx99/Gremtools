@@ -11,6 +11,7 @@ const PATHS = {
   toImage: 'M6 3h8l4 4v6M14 3v4h4M6 3v10M4 15h16v6H4zM4 19l4-3 3 2 4-3 5 4',
   watermark: 'M7 3h7l5 5v13H7zM14 3v5h5M9.5 17l2.5-6 2.5 6m-4-2h3',
   numbers: 'M7 3h7l5 5v13H7zM14 3v5h5M11 17h4m-2 0v-5l-1.5 1',
+  cutout: 'M4 7V4h3M10.5 4h3M17 4h3v3M20 10.5v3M20 17v3h-3M13.5 20h-3M7 20H4v-3M4 13.5v-3M12 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM8 16.5c.6-2 2-3 4-3s3.4 1 4 3',
   upload: 'M12 16V5m0 0-4 4m4-4 4 4M5 19h14',
   download: 'M12 5v11m0 0-4-4m4 4 4-4M5 19h14',
   trash: 'M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13M10 11v5M14 11v5',

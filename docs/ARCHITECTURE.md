@@ -1,7 +1,7 @@
 # Architecture
 
 This document explains how Gremtools is built, how to extend it, and what to watch out for.
-It describes the code as of version 0.1.0 (platform shell plus the PDF module).
+It describes the code as of version 0.2.0 (platform shell, the PDF module, and the first image tool).
 
 ## The idea in one paragraph
 
@@ -20,6 +20,7 @@ site so it also works offline and can be installed as an app (PWA).
 | PDF writing | `pdf-lib` (MIT) |
 | PDF compression and rendering | `mupdf` (MuPDF.js, WASM, AGPL-3.0) |
 | PDF thumbnails | `pdfjs-dist` (PDF.js, Apache-2.0) |
+| Background removal | `@imgly/background-removal` 1.4.5 (ISNet model on `onnxruntime-web`, AGPL-3.0) |
 | Zip | `fflate` |
 | Drag to reorder | `@dnd-kit` |
 | Tests | Vitest (unit), Playwright (end to end) |
@@ -47,6 +48,8 @@ src/
     files.ts            read bytes, download, zip, size formatting, image conversion
     Icon.tsx            inline SVG icons
     Mascot.tsx          Ling, in four poses, and the head-only logo mark
+    CompareSlider.tsx   before/after slider
+    errors.ts           ToolError, for messages meant for the user
   modules/
     pdf/
       meta.ts           tool ids, names, descriptions, icons, search keywords
@@ -56,11 +59,17 @@ src/
       lib/              pure functions, bytes in, bytes out (pdf-lib)
       engines/mupdf.ts  MuPDF operations (compress, render)
       tools/            one React page per tool, plus tools/shared.tsx
-    image/registry.ts   placeholder module (no tools yet)
+    image/
+      meta.ts, registry.ts   tool text and lazy components (same pattern as pdf)
+      worker.ts, client.ts   Web Worker and removeBackgroundInWorker()
+      engines/backgroundRemoval.ts   wrapper around the background-removal library
+      lib/compose.ts    pure sizing and naming helpers
+      tools/RemoveBackground.tsx   page with the before/after editor
     colour/registry.ts  placeholder module (no tools yet)
 tests/
   unit/                 Vitest tests of lib/ and engines/ (run in Node)
   e2e/run.mjs           Playwright script against the built site
+build/bgRemovalAssets.ts  Vite plugin: serves and copies the background-removal model files
 public/                 favicon, app icons, _redirects (single-page fallback)
 scripts/make-icons.mjs  regenerates the PNG app icons from favicon.svg
 scripts/spa-fallback.mjs  copies index.html to 404.html after each build (GitHub Pages)
@@ -86,6 +95,33 @@ Using Compress as the example:
 
 Thumbnails are separate: `usePdfFile` opens the PDF with PDF.js on the main thread (PDF.js runs
 its own worker internally) and `PageThumb` renders each page when it scrolls into view.
+
+## How background removal works
+
+1. `tools/RemoveBackground.tsx` sends the chosen image to the image worker through
+   `removeBackgroundInWorker` (`client.ts`).
+2. The worker shrinks the image to at most 1024 px on its longest side and passes it to
+   `engines/backgroundRemoval.ts`. The model works at 1024 px regardless, and the library's own
+   resizing is very slow on large photos, so shrinking first is what keeps big photos fast.
+3. The library fetches its files from `<base>/bg-removal/` (an index, `resources.json`, plus
+   4 MB chunks named by hash), runs the ISNet model with ONNX Runtime (WebAssembly, CPU), and
+   returns a small PNG whose transparency is the cut-out.
+4. Back on the page, `applyMask` uses that small PNG as a mask over the full-size original, so the
+   download is full resolution. `drawComposite` paints the chosen background (none, colour,
+   blurred original, or another image) and then the cut-out; the same function draws the preview
+   and the download.
+
+**Model files.** They come from the `@imgly/background-removal-data` npm package and are not
+committed. `build/bgRemovalAssets.ts` serves them from `node_modules` in development and copies
+them into `dist/bg-removal/` on build (two models and the CPU engine builds, about 165 MB). They
+are excluded from the service worker precache and cached on first use by a `CacheFirst` runtime
+rule in `vite.config.ts`, so the tool works offline after one run. If the library is upgraded,
+change the cache name in that rule. Keep `@imgly/background-removal` and
+`@imgly/background-removal-data` on the same version: newer library versions (1.5 and later) do
+not publish their model data to npm, only to the vendor's server, which is why 1.4.5 is used.
+
+To swap in a different model or library, replace `engines/backgroundRemoval.ts` and keep its
+shape: image in, same-size PNG with a transparent background out.
 
 ## The registry
 
@@ -121,8 +157,8 @@ They are split so a tool page can read its own title from `meta.ts` without impo
 
 ## Adding a module
 
-1. Create `src/modules/<id>/` with its own `registry.ts` exporting a `ModuleDef` (the image and
-   colour placeholders already exist), plus `lib/`, `tools/` and, if it does heavy work, its own
+1. Create `src/modules/<id>/` with its own `registry.ts` exporting a `ModuleDef` (the colour
+   placeholder already exists; the image module is a small worked example), plus `lib/`, `tools/` and, if it does heavy work, its own
    `worker.ts` and `client.ts` following the PDF module.
 2. It is already listed in `MODULES` in `app/config.ts`; new ones are added there.
 3. Modules may import from `src/shared/` only. If two modules need the same thing, move it to
@@ -130,8 +166,8 @@ They are split so a tool page can read its own title from `meta.ts` without impo
 
 ## Offline and installation
 
-`vite-plugin-pwa` generates a service worker that precaches every built file, including the MuPDF
-WASM, about 13 MB in total. This is what makes every tool work offline, at the cost of a
+`vite-plugin-pwa` generates a service worker that precaches every built file except the
+background-removal models, including the MuPDF WASM, about 13 MB in total. This is what makes every tool work offline, at the cost of a
 background download on the first visit. `registerType: 'autoUpdate'` means a new deployment
 replaces the cache the next time the site is opened.
 
@@ -166,6 +202,14 @@ licence agreement is needed first.
 **Memory.** Files are held fully in memory, and are copied when sent to the worker. A 200 MB PDF
 can need several times that. Very large files may crash the worker on phones; the user then sees
 the generic error. Possible improvements are in the roadmap.
+
+**Background removal limits.** It runs on the CPU in a single thread, because GitHub Pages cannot
+send the headers that multi-threading needs (cross-origin isolation); on the development machine a
+run took 13 to 17 seconds. Results are good on clear subjects and weaker on fine hair, glass and
+busy backgrounds; the Fast model can leave faint specks of background, which the Best model
+handles better. Output is capped at 16 megapixels (the canvas limit on iOS). The blurred
+background uses canvas `filter`, which older Safari versions ignore (the background then appears
+unblurred). The deployed site is about 180 MB because of the model files.
 
 **Encrypted PDFs.** Password-protected PDFs are rejected with a clear message. There is no unlock
 tool yet.
