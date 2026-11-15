@@ -41,3 +41,18 @@ export function outputName(original: string, ext: 'png' | 'jpg'): string {
   const base = original.replace(/\.[^.]+$/, '') || 'image'
   return `${base}-no-background.${ext}`
 }
+
+/** Make names unique for a zip: a second "a.png" becomes "a-2.png". */
+export function uniqueNames(names: string[]): string[] {
+  const used = new Map<string, number>()
+  return names.map((name) => {
+    const n = (used.get(name) ?? 0) + 1
+    used.set(name, n)
+    return n === 1 ? name : name.replace(/(\.[^.]+)?$/, `-${n}$1`)
+  })
+}
+
+/** Brush width in picture pixels for a 1-100 slider value: 0.5% to 25% of the longest side. */
+export function brushWidth(slider: number, w: number, h: number): number {
+  return Math.max(2, Math.round((Math.max(w, h) * (0.5 + (slider - 1) * 0.2475)) / 100))
+}

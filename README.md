@@ -23,7 +23,7 @@ tools (planned).
 
 | Tool | What it does |
 |---|---|
-| Remove background | Cuts the subject out of a photo on the device; keep it transparent, or put a colour, a blur of the original, or another image behind it. Full-resolution PNG or JPG download |
+| Remove background | Cuts the subject out of photos (on-device AI model) and logos or graphics (exact flat-colour removal), picked automatically. Toolbar editor with erase and restore brushes, magic eraser, and colour, blurred or image backgrounds. Batch mode with zip download. Full-resolution PNG or JPG |
 
 Files are processed on the user's device with WebAssembly and JavaScript. The site makes no
 network requests with file data, and works offline after the first visit (it is an installable PWA). The one exception to "first
@@ -78,6 +78,7 @@ host serve `index.html` for unknown paths. `public/_redirects` does this on thos
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): how it works, how to add a tool or module, what to be aware of
 - [`docs/ROADMAP.md`](docs/ROADMAP.md): what is done and what comes next
 - [`docs/BRAND.md`](docs/BRAND.md): name, mascot, design and voice
+- [`CHANGELOG.md`](CHANGELOG.md): what changed in each version
 - [`CLAUDE.md`](CLAUDE.md): short orientation for AI coding assistants
 
 ## Licence

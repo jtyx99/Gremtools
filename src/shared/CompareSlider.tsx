@@ -5,8 +5,26 @@ import { useState, type ReactNode } from 'react'
  * divider; `after` fills the rest. Both should be the same size. Drag anywhere,
  * or use the arrow keys.
  */
-export function CompareSlider({ before, after, label = 'Compare before and after' }: { before: ReactNode; after: ReactNode; label?: string }) {
+export function CompareSlider({
+  before,
+  after,
+  label = 'Compare before and after',
+  enabled = true,
+}: {
+  before: ReactNode
+  after: ReactNode
+  label?: string
+  /** When false only `after` is shown, without the divider. Lets a tool keep `after` mounted while other tools are active. */
+  enabled?: boolean
+}) {
   const [split, setSplit] = useState(50)
+  if (!enabled) {
+    return (
+      <div className="relative inline-block max-w-full overflow-hidden rounded-xl border border-border select-none">
+        <div className="checkerboard">{after}</div>
+      </div>
+    )
+  }
   return (
     <div className="relative inline-block max-w-full overflow-hidden rounded-xl border border-border select-none">
       <div className="checkerboard">{after}</div>

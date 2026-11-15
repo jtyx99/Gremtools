@@ -1,7 +1,7 @@
 # Architecture
 
 This document explains how Gremtools is built, how to extend it, and what to watch out for.
-It describes the code as of version 0.2.0 (platform shell, the PDF module, and the first image tool).
+It describes the code as of version 0.3.0 (platform shell, the PDF module, and the first image tool).
 
 ## The idea in one paragraph
 
@@ -61,10 +61,13 @@ src/
       tools/            one React page per tool, plus tools/shared.tsx
     image/
       meta.ts, registry.ts   tool text and lazy components (same pattern as pdf)
-      worker.ts, client.ts   Web Worker and removeBackgroundInWorker()
+      worker.ts, client.ts   Web Worker (picks graphic or photo method) and cutOut()
       engines/backgroundRemoval.ts   wrapper around the background-removal library
       lib/compose.ts    pure sizing and naming helpers
-      tools/RemoveBackground.tsx   page with the before/after editor
+      lib/flatBackground.ts   flat-colour removal, magic eraser, graphic-or-photo test
+      lib/maskCleanup.ts      tidies the AI mask
+      tools/RemoveBackground.tsx   page: file list, options, batch grid
+      tools/removeBackground/      Editor.tsx (toolbar editor), canvas.ts (drawing, Item type)
     colour/registry.ts  placeholder module (no tools yet)
 tests/
   unit/                 Vitest tests of lib/ and engines/ (run in Node)
@@ -98,18 +101,47 @@ its own worker internally) and `PageThumb` renders each page when it scrolls int
 
 ## How background removal works
 
-1. `tools/RemoveBackground.tsx` sends the chosen image to the image worker through
-   `removeBackgroundInWorker` (`client.ts`).
-2. The worker shrinks the image to at most 1024 px on its longest side and passes it to
-   `engines/backgroundRemoval.ts`. The model works at 1024 px regardless, and the library's own
-   resizing is very slow on large photos, so shrinking first is what keeps big photos fast.
-3. The library fetches its files from `<base>/bg-removal/` (an index, `resources.json`, plus
-   4 MB chunks named by hash), runs the ISNet model with ONNX Runtime (WebAssembly, CPU), and
-   returns a small PNG whose transparency is the cut-out.
-4. Back on the page, `applyMask` uses that small PNG as a mask over the full-size original, so the
-   download is full resolution. `drawComposite` paints the chosen background (none, colour,
-   blurred original, or another image) and then the cut-out; the same function draws the preview
-   and the download.
+There are two methods, because one cannot do both jobs well. The worker (`image/worker.ts`) picks
+one per picture, or the user chooses with "Kind of picture".
+
+| Method | For | How | Code |
+|---|---|---|---|
+| `graphic` | Logos, illustrations, screenshots: a flat-colour background | Reads the background colour from the border, flood-fills it away from the edges, opens small enclosed pockets of the same colour, and gives anti-aliased edge pixels the right partial transparency with the background colour removed from them | `lib/flatBackground.ts` |
+| `photo` | People, products, animals | ISNet AI model, then mask clean-up (haze, stray patches, pinholes) | `engines/backgroundRemoval.ts`, `lib/maskCleanup.ts` |
+
+**Auto** (`looksLikeGraphic`): a picture is a graphic when at least 97% of its border is one
+colour *and* 48 or fewer colours (at 4 bits per channel) cover 98% of it. Photos fail the second
+test even on a plain backdrop, so a product photo on white still goes to the model. The AI model is
+trained to find the "main subject" of a photograph; on a logo it guesses, which is why graphics
+must not be sent to it.
+
+Flow:
+
+1. `tools/RemoveBackground.tsx` sends each chosen image to the worker through `cutOut`
+   (`client.ts`), one after another.
+2. The worker draws the image at output size (capped at 16 megapixels).
+   - Graphic: runs `removeFlatBackground` on the pixels. No downloads, typically under a second.
+   - Photo: shrinks a copy to at most 1024 px (the model's working size; the library's own
+     resizing is very slow on large photos), runs the model, cleans the mask with `cleanMask`,
+     and applies the mask to the full-size picture.
+3. The worker returns a full-size PNG with a transparent background. That PNG is the item's
+   state: `Item` in `tools/removeBackground/canvas.ts` holds the source file, the cut-out PNG and
+   the background settings, nothing decoded, so a batch stays small in memory.
+4. A single picture opens straight in the editor; several show a grid first.
+
+**Editor** (`tools/removeBackground/Editor.tsx`). It decodes the original and the cut-out, and
+keeps the cut-out in a full-size canvas. Every tool edits that canvas, and the preview is redrawn
+from it:
+
+- Erase: strokes with `destination-out`.
+- Restore: strokes whose "ink" is a pattern of the original picture, so original pixels return in
+  place.
+- Magic eraser: `eraseRegion` (the same function the graphic method uses) from the clicked pixel.
+- Undo/redo: copies of the canvas, at most 12.
+- Background and download: `paintResult` in `canvas.ts` draws the chosen background and then the
+  cut-out; the preview, the download and the batch zip all use it.
+
+In batch mode, "Done" encodes the canvas back to PNG and stores it on the item.
 
 **Model files.** They come from the `@imgly/background-removal-data` npm package and are not
 committed. `build/bgRemovalAssets.ts` serves them from `node_modules` in development and copies
@@ -121,7 +153,8 @@ change the cache name in that rule. Keep `@imgly/background-removal` and
 not publish their model data to npm, only to the vendor's server, which is why 1.4.5 is used.
 
 To swap in a different model or library, replace `engines/backgroundRemoval.ts` and keep its
-shape: image in, same-size PNG with a transparent background out.
+shape: image in, same-size PNG with a transparent background out. The worker's clean-up and
+full-size masking stay as they are.
 
 ## The registry
 
@@ -203,11 +236,16 @@ licence agreement is needed first.
 can need several times that. Very large files may crash the worker on phones; the user then sees
 the generic error. Possible improvements are in the roadmap.
 
-**Background removal limits.** It runs on the CPU in a single thread, because GitHub Pages cannot
-send the headers that multi-threading needs (cross-origin isolation); on the development machine a
-run took 13 to 17 seconds. Results are good on clear subjects and weaker on fine hair, glass and
-busy backgrounds; the Fast model can leave faint specks of background, which the Best model
-handles better. Output is capped at 16 megapixels (the canvas limit on iOS). The blurred
+**Background removal limits.** The photo method runs on the CPU in a single thread, because GitHub
+Pages cannot send the headers that multi-threading needs (cross-origin isolation); on the
+development machine a run took 13 to 18 seconds. It is good on clear subjects and weaker on fine
+hair, glass and busy backgrounds. The graphic method assumes one flat background colour: gradients,
+shadows and textured backdrops defeat it, and a subject the same colour as the background will be
+eaten into where it touches the background (the Restore brush fixes that). Auto can misjudge
+unusual pictures; the user can force either method. Mask clean-up drops separate pieces smaller
+than 2% of the largest one, which can remove a genuine small detached part. The brush has a hard
+edge and there is no zoom yet. Magic eraser and the graphic method read the whole picture's pixels,
+which takes noticeable time and memory near the 16-megapixel cap. Output is capped at 16 megapixels (the canvas limit on iOS). The blurred
 background uses canvas `filter`, which older Safari versions ignore (the background then appears
 unblurred). The deployed site is about 180 MB because of the model files.
 

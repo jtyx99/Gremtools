@@ -23,6 +23,12 @@ What has been built, what should come next, and ideas for later. Update this fil
   before/after slider, transparent / colour / blurred / image backgrounds, full-resolution PNG and
   JPG download, model cached for offline use after the first run.
 
+## Done (version 0.3.0)
+
+- Remove background: graphic method for logos and flat backgrounds with automatic choice, mask
+  clean-up for photos, toolbar editor (compare, background, erase, restore, magic eraser, undo and
+  redo), and batch mode with zip download. See `CHANGELOG.md`.
+
 ## Next (recommended order)
 
 1. **Custom domain and pull-request checks.** Register a domain and add it under Settings →
@@ -84,15 +90,16 @@ Reference sites: iLoveIMG, Squoosh, Photopea, TinyPNG, remove.bg.
 
 ### Remove background: follow-ups
 
-1. **Erase/restore brush** to fix edges by hand (remove.bg calls this Magic Brush). Paint on the
-   mask canvas; the compositing code already separates mask from image.
-2. **Batch mode:** several images in, zip of cut-outs out.
-3. **Better model:** BiRefNet (MIT) through Transformers.js for finer hair and edges. Larger, and
-   realistically needs WebGPU; add as a third quality level after testing.
-4. **Edge controls:** feather, shrink/grow the edge, drop shadow under the subject.
+1. **Zoom and pan** in the editor, for precise brushing on large pictures.
+2. **Soft-edged brush** option, and feather / shrink / grow controls for the whole edge.
+3. **Better photo model:** BiRefNet (MIT) through Transformers.js for finer hair and edges. Larger,
+   and realistically needs WebGPU; add as a third quality level after testing on real photos.
+4. **Hybrid method** for product photos on a plain backdrop: use the flat-colour result to sharpen
+   the model's edge.
 5. **Speed:** WebGPU where available, and multi-threading on a host that can send
    cross-origin-isolation headers (Cloudflare Pages can; GitHub Pages cannot).
-6. **Clean-up of specks** left by the Fast model (drop small isolated regions of the mask).
+6. **Same background for all** in batch mode, and a per-item "try the other method" button.
+7. **Drop shadow** under the subject; **crop to subject**.
 
 ## Colour module (planned)
 

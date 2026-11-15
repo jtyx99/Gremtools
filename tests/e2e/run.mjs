@@ -132,7 +132,7 @@ function subjectPng() {
 function alphaAt(png, x, y) {
   const pix = new mupdf.Image(png).toPixmap()
   const n = pix.getNumberOfComponents()
-  assert.equal(pix.getAlpha(), 1, 'output should have transparency')
+  if (!pix.getAlpha()) return 255
   return pix.getPixels()[(y * pix.getWidth() + x) * n + n - 1]
 }
 const ball = subjectPng()
@@ -240,34 +240,129 @@ await test('a broken PDF gives a clear message', async () => {
   assert.match(await page.getByTestId('open-error').innerText(), /could not be read as a PDF/)
 })
 
-async function removeBackground() {
+/** A logo-like picture: white ground, blue badge with a large white shape, black block with a small hole. */
+function logoPng() {
+  const w = 400, h = 200
+  const pix = new mupdf.Pixmap(mupdf.ColorSpace.DeviceRGB, [0, 0, w, h], false)
+  const px = pix.getPixels()
+  const rect = (x0, y0, x1, y1, c) => {
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) px.set(c, (y * w + x) * 3)
+  }
+  rect(0, 0, w, h, [255, 255, 255])
+  rect(20, 20, 160, 180, [107, 184, 215])
+  rect(60, 60, 120, 140, [255, 255, 255])
+  rect(220, 50, 380, 150, [0, 0, 0])
+  rect(290, 95, 300, 105, [255, 255, 255])
+  const path = join(dir, 'logo.png')
+  writeFileSync(path, pix.asPNG())
+  return path
+}
+const logo = logoPng()
+
+async function startRemoval(files) {
   await open('/image/remove-background')
-  await upload(ball)
-  // BG_MODEL=best exercises the larger model (slower; 88 MB of files).
-  if (process.env.BG_MODEL === 'best') await page.getByText('Best', { exact: true }).click()
-  const started = Date.now()
+  await upload(files)
+  // The default is the Best model. BG_MODEL=fast uses the smaller one.
+  if (process.env.BG_MODEL === 'fast') await page.getByText('Fast', { exact: true }).click()
   await page.getByTestId('run').click()
+}
+async function savePng() {
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-png').click()])
+  return new Uint8Array(readFileSync(await dl.path()))
+}
+/** Drag across the editor canvas between two points given as fractions of its size. */
+async function drag(from, to) {
+  const box = await page.getByTestId('editor-canvas').boundingBox()
+  await page.mouse.move(box.x + box.width * from[0], box.y + box.height * from[1])
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width * to[0], box.y + box.height * to[1], { steps: 8 })
+  await page.mouse.up()
+}
+const toolButton = (name) => page.getByRole('toolbar').getByRole('button', { name, exact: true })
+
+async function removeBackground() {
+  const started = Date.now()
+  await startRemoval(ball)
   await page.getByTestId('download-png').waitFor({ timeout: 240000 })
   const seconds = ((Date.now() - started) / 1000).toFixed(1)
-  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-png').click()])
-  return { png: new Uint8Array(readFileSync(await dl.path())), seconds }
+  return { png: await savePng(), seconds }
 }
 
-await test('remove background cuts out the subject', async () => {
+await test('remove background: photo is cut out with the model, cleanly', async () => {
   const { png, seconds } = await removeBackground()
   console.log(`        (first run, including model download: ${seconds}s)`)
-  assert.ok(alphaAt(png, 5, 5) < 30, 'corner should be transparent')
-  assert.ok(alphaAt(png, 634, 474) < 30, 'opposite corner should be transparent')
+  assert.match(await page.getByTestId('result').innerText(), /photo model/)
+  assert.equal(alphaAt(png, 5, 5), 0, 'corner should be fully transparent')
+  assert.equal(alphaAt(png, 634, 474), 0, 'opposite corner should be fully transparent')
+  assert.equal(alphaAt(png, 560, 120), 0, 'no specks left in the background')
   assert.ok(alphaAt(png, 320, 240) > 225, 'subject should be opaque')
   await shot('remove-background')
-  // A filled background makes the whole picture opaque and offers JPG.
+})
+
+await test('remove background: erase, undo and restore brushes', async () => {
+  await toolButton('Erase').click()
+  await drag([0.4, 0.5], [0.6, 0.5])
+  assert.equal(alphaAt(await savePng(), 320, 240), 0, 'erased stroke should be transparent')
+  await page.getByRole('button', { name: 'Undo' }).click()
+  assert.ok(alphaAt(await savePng(), 320, 240) > 225, 'undo should bring the subject back')
+  // Restore paints the original back, even where the model removed it.
+  await toolButton('Restore').click()
+  await drag([0.05, 0.1], [0.15, 0.1])
+  assert.ok(alphaAt(await savePng(), 64, 48) > 225, 'restored stroke should be opaque')
+  await shot('remove-background-restore')
+})
+
+await test('remove background: a colour background fills the picture', async () => {
+  await toolButton('Background').click()
   await page.getByTestId('result').getByText('Colour', { exact: true }).click()
   await page.getByTestId('download-jpg').waitFor()
-  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-png').click()])
-  const filled = new mupdf.Image(new Uint8Array(readFileSync(await dl.path()))).toPixmap()
+  const filled = new mupdf.Image(await savePng()).toPixmap()
   const n = filled.getNumberOfComponents()
   assert.ok(!filled.getAlpha() || filled.getPixels()[n - 1] === 255, 'filled background should be opaque')
   await shot('remove-background-colour')
+})
+
+await test('remove background: a logo is handled as a graphic, exactly', async () => {
+  const before = requests.length
+  await startRemoval(logo)
+  await page.getByTestId('download-png').waitFor({ timeout: 60000 })
+  assert.match(await page.getByTestId('result').innerText(), /flat-colour graphic/)
+  assert.equal(requests.slice(before).filter((r) => r.url.includes('/bg-removal/')).length, 0, 'no model needed for a graphic')
+  let png = await savePng()
+  assert.equal(alphaAt(png, 2, 2), 0, 'ground removed')
+  assert.equal(alphaAt(png, 190, 100), 0, 'ground between shapes removed')
+  assert.equal(alphaAt(png, 40, 100), 255, 'badge kept')
+  assert.equal(alphaAt(png, 90, 100), 255, 'large white shape inside the badge kept')
+  assert.equal(alphaAt(png, 250, 100), 255, 'black block kept')
+  assert.equal(alphaAt(png, 295, 100), 0, 'small hole opened')
+  await shot('remove-background-logo')
+  // Magic eraser: one click removes the whole badge colour, nothing else.
+  await toolButton('Magic eraser').click()
+  const box = await page.getByTestId('editor-canvas').boundingBox()
+  await page.mouse.click(box.x + box.width * 0.1, box.y + box.height * 0.5)
+  png = await savePng()
+  assert.equal(alphaAt(png, 40, 100), 0, 'clicked colour removed')
+  assert.equal(alphaAt(png, 90, 100), 255, 'white shape untouched')
+  assert.equal(alphaAt(png, 250, 100), 255, 'black block untouched')
+})
+
+await test('remove background: batch gives a zip, and items can be edited', async () => {
+  await startRemoval([ball, logo])
+  await page.getByTestId('download-all').waitFor({ timeout: 240000 })
+  assert.equal(await page.getByTestId('batch-item').count(), 2)
+  await shot('remove-background-batch')
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-all').click()])
+  const zip = unzipSync(new Uint8Array(readFileSync(await dl.path())))
+  assert.deepEqual(Object.keys(zip).sort(), ['ball-no-background.png', 'logo-no-background.png'])
+  assert.equal(alphaAt(zip['logo-no-background.png'], 2, 2), 0)
+  // Open one, erase part of it, and check the edit is kept in the zip.
+  await page.getByTestId('batch-edit').nth(1).click()
+  await toolButton('Erase').click()
+  await drag([0.6, 0.5], [0.9, 0.5])
+  await page.getByTestId('editor-done').click()
+  const [dl2] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-all').click()])
+  const zip2 = unzipSync(new Uint8Array(readFileSync(await dl2.path())))
+  assert.equal(alphaAt(zip2['logo-no-background.png'], 300, 100), 0, 'edit should be saved')
 })
 
 await test('no request leaves the site or carries data', async () => {

@@ -40,4 +40,6 @@ Read `docs/ARCHITECTURE.md` before structural changes; it has the step-by-step f
 - British spelling in user-facing text (organise, colour, centre).
 - Every new operation gets a unit test in `tests/unit/` and an end-to-end check in `tests/e2e/run.mjs`.
 - Keep `docs/ROADMAP.md` up to date when a tool ships.
+- Record every user-visible change in `CHANGELOG.md` (newest first) and bump `version` in
+  `package.json` in the same commit.
 - Brand rules (mascot, palette, voice) are in `docs/BRAND.md`.

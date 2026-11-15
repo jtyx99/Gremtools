@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blurRadius, coverRect, fitArea, fitWithin, outputName } from '../../src/modules/image/lib/compose'
+import { blurRadius, brushWidth, coverRect, fitArea, fitWithin, outputName, uniqueNames } from '../../src/modules/image/lib/compose'
 
 describe('image compose helpers', () => {
   it('fits within a longest side without scaling up', () => {
@@ -25,5 +25,13 @@ describe('image compose helpers', () => {
   it('names the output after the original', () => {
     expect(outputName('holiday.photo.jpeg', 'png')).toBe('holiday.photo-no-background.png')
     expect(outputName('.hidden', 'jpg')).toBe('image-no-background.jpg')
+  })
+  it('makes duplicate names unique', () => {
+    expect(uniqueNames(['a.png', 'b.png', 'a.png', 'a.png'])).toEqual(['a.png', 'b.png', 'a-2.png', 'a-3.png'])
+  })
+  it('scales the brush with the picture', () => {
+    expect(brushWidth(1, 1000, 500)).toBe(5)
+    expect(brushWidth(100, 1000, 500)).toBe(250)
+    expect(brushWidth(1, 100, 100)).toBe(2)
   })
 })
